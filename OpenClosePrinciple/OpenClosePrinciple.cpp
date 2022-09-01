@@ -78,7 +78,7 @@ public:
 
     MultipleSpecifications<T> operator&& (Specification <T>& other)
     {
-        return MultipleSpecifications<T>(*this, other);
+        return MultipleSpecifications<T>(this, &other);
     }
 };
 
@@ -128,19 +128,39 @@ template <typename T>
 class MultipleSpecifications : public Specification<T>
 {
 public:
-    MultipleSpecifications(Specification<T>& first, Specification<T>& second) 
-        : fFirst(first)
-        , fSecond(second)
-    {}
+    MultipleSpecifications(Specification<T>* first, Specification<T>* second) 
+    {
+        fSpecifications.push_back(first);
+        fSpecifications.push_back(second);
+    }
+
+    MultipleSpecifications(MultipleSpecifications<T>* current, Specification<T>* append)
+    {
+        fSpecifications = current->fSpecifications;
+        fSpecifications.push_back(append);
+    }
+
+    MultipleSpecifications<T> operator&& (Specification <T>& other)
+    {
+        return MultipleSpecifications<T>(this, &other);
+    }
 
     virtual bool IsSatisfied(T item) override
     {
-        return fFirst.IsSatisfied(item) && fSecond.IsSatisfied(item);
+        bool result = true;
+        for (const auto& specification : fSpecifications)
+        {
+            if (!specification->IsSatisfied(item))
+            {
+                result = false;
+                break;
+            }
+        }
+        return result;
     }
 
 private:
-    Specification<T>& fFirst;
-    Specification<T>& fSecond;
+    std::vector<Specification<T>*> fSpecifications;
 };
 
 template <typename T>
@@ -190,6 +210,7 @@ int main()
 
     Product bluePantsL("Pants", eBlue, eL);
     Product bluePantsXL("Pants", eBlue, eXL);
+    Product greenPantsL("Pants", eGreen, eL);
 
     Product blueShirtM("Shirt", eBlue, eM);
     Product blueShirtL("Shirt", eBlue, eL);
@@ -201,6 +222,8 @@ int main()
 
     products.push_back(&bluePantsL);
     products.push_back(&bluePantsXL);
+    products.push_back(&greenPantsL);
+
 
     products.push_back(&blueShirtM);
     products.push_back(&blueShirtL);
@@ -230,7 +253,7 @@ int main()
     }
     std::cout << std::endl;
 
-    auto mult = bySize && byType;
+    auto mult = bySize && byType && byColor;
 
     std::vector<Product*> shirtsSizeL = filter.FilterIt(products, mult);
 
